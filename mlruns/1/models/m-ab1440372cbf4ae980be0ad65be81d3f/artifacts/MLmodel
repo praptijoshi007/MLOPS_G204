@@ -1,0 +1,37 @@
+artifact_path: file:///C:/Users/prapt/python projs/MLOPS_G204/mlruns/1/models/m-ab1440372cbf4ae980be0ad65be81d3f/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.5
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.9.1
+    skops_trusted_types: null
+is_signature_from_type_hint: false
+mlflow_version: 3.18.0
+model_id: m-ab1440372cbf4ae980be0ad65be81d3f
+model_size_bytes: 14782235
+model_uuid: m-ab1440372cbf4ae980be0ad65be81d3f
+prompts: null
+run_id: c4bb797bdd69465b8c29626837f46956
+signature:
+  inputs: '[{"type": "long", "name": "cards_attached", "required": true}, {"type":
+    "double", "name": "working_hours", "required": true}, {"type": "double", "name":
+    "temp_c", "required": true}, {"type": "double", "name": "stock_kg_morning", "required":
+    true}, {"type": "long", "name": "days_to_month_end", "required": true}, {"type":
+    "string", "name": "shop_area", "required": true}, {"type": "string", "name": "block",
+    "required": true}, {"type": "long", "name": "month", "required": true}, {"type":
+    "long", "name": "day_of_week", "required": true}, {"type": "long", "name": "day_of_month",
+    "required": true}, {"type": "long", "name": "day_of_year", "required": true},
+    {"type": "long", "name": "is_weekend", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-11-27 13:47:13.927062'
