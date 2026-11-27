@@ -1,0 +1,122 @@
+leaking_column:
+  present: false
+  details:
+    columns_missing_from_holdout: []
+    high_correlation_candidates: []
+    all_numeric_candidates: []
+unit_mixup:
+  present: true
+  details:
+  - column: stock_kg_morning
+    larger_group: Block East
+    smaller_group: Block North
+    observed_median_ratio: 1095.1818
+    factor: 1000
+    group_statistics:
+      Block East:
+        min: 212000.0
+        mean: 1788450.0
+        max: 2980000.0
+        median: 1852500.0
+      Block North:
+        min: 205.0
+        mean: 1636.1098484848485
+        max: 2996.0
+        median: 1691.5
+  - column: stock_kg_morning
+    larger_group: Block East
+    smaller_group: Block South
+    observed_median_ratio: 1172.8395
+    factor: 1000
+    group_statistics:
+      Block East:
+        min: 212000.0
+        mean: 1788450.0
+        max: 2980000.0
+        median: 1852500.0
+      Block South:
+        min: 208.0
+        mean: 1576.198717948718
+        max: 2988.0
+        median: 1579.5
+sentinel_value:
+  present: false
+  details: []
+duplicate_rows:
+  present: false
+  details:
+    duplicate_count: 0
+    definition: Extra copies of fully duplicated rows
+stuck_sensor:
+  present: true
+  details:
+  - column: biometric_failures
+    group: Block East
+    value: 49.0
+    first_date: '2026-02-26'
+    last_date: '2026-03-14'
+    duration_days: 16
+    row_count: 18
+  - column: biometric_failures
+    group: Block North
+    value: 49.0
+    first_date: '2026-02-24'
+    last_date: '2026-03-14'
+    duration_days: 18
+    row_count: 56
+  - column: biometric_failures
+    group: Block South
+    value: 49.0
+    first_date: '2026-02-24'
+    last_date: '2026-03-14'
+    duration_days: 18
+    row_count: 36
+target_typos:
+  present: true
+  details:
+    target_column: grain_kg
+    candidate_count: 12
+    candidates:
+    - row_index: 10
+      original_value: 9572.0
+      value_divided_by_10: 957.2
+    - row_index: 101
+      original_value: 14248.0
+      value_divided_by_10: 1424.8
+    - row_index: 302
+      original_value: 12443.0
+      value_divided_by_10: 1244.3
+    - row_index: 390
+      original_value: 10549.0
+      value_divided_by_10: 1054.9
+    - row_index: 393
+      original_value: 17743.0
+      value_divided_by_10: 1774.3
+    - row_index: 399
+      original_value: 9491.0
+      value_divided_by_10: 949.1
+    - row_index: 566
+      original_value: 12076.0
+      value_divided_by_10: 1207.6
+    - row_index: 825
+      original_value: 20186.0
+      value_divided_by_10: 2018.6
+    - row_index: 863
+      original_value: 9433.0
+      value_divided_by_10: 943.3
+    - row_index: 882
+      original_value: 10425.0
+      value_divided_by_10: 1042.5
+    - row_index: 974
+      original_value: 12898.0
+      value_divided_by_10: 1289.8
+    - row_index: 978
+      original_value: 14043.0
+      value_divided_by_10: 1404.3
+    q1: 909.1500000000001
+    q3: 1389.85
+    maximum: 20186.0
+    largest_adjacent_ratio: 2.7947246551897718
+spelling_variants:
+  present: false
+  details: []
