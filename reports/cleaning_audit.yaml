@@ -1,0 +1,155 @@
+stage: Stage 2 - Data Cleaning
+source_dataset: data/raw/train.csv
+cleaned_dataset: data/processed/train_clean.csv
+target_column: grain_kg
+operations:
+  backup:
+    backup_path: data\processed\train_original_backup.csv
+    original_shape:
+    - 1000
+    - 11
+    original_file_preserved: true
+  duplicates:
+    duplicates_found: 0
+    duplicates_removed: 0
+    rows_after_removal: 1000
+  unit_mixup:
+    applied: true
+    column: stock_kg_morning
+    group: Block East
+    conversion: divide by 1000
+    factor: 1000
+    rows_affected: 160
+    statistics_before:
+      min: 212000.0
+      mean: 1788450.0
+      max: 2980000.0
+      median: 1852500.0
+    statistics_after:
+      min: 212.0
+      mean: 1788.45
+      max: 2980.0
+      median: 1852.5
+  target_typos:
+    candidates_found: 12
+    corrections_applied: 12
+    corrections_skipped: 0
+    corrections_require_explicit_approval: true
+    details:
+    - row_index: 10
+      original_value: 9572.0
+      proposed_value: 957.2
+      status: corrected_after_explicit_approval
+    - row_index: 101
+      original_value: 14248.0
+      proposed_value: 1424.8
+      status: corrected_after_explicit_approval
+    - row_index: 302
+      original_value: 12443.0
+      proposed_value: 1244.3
+      status: corrected_after_explicit_approval
+    - row_index: 390
+      original_value: 10549.0
+      proposed_value: 1054.9
+      status: corrected_after_explicit_approval
+    - row_index: 393
+      original_value: 17743.0
+      proposed_value: 1774.3
+      status: corrected_after_explicit_approval
+    - row_index: 399
+      original_value: 9491.0
+      proposed_value: 949.1
+      status: corrected_after_explicit_approval
+    - row_index: 566
+      original_value: 12076.0
+      proposed_value: 1207.6
+      status: corrected_after_explicit_approval
+    - row_index: 825
+      original_value: 20186.0
+      proposed_value: 2018.6
+      status: corrected_after_explicit_approval
+    - row_index: 863
+      original_value: 9433.0
+      proposed_value: 943.3
+      status: corrected_after_explicit_approval
+    - row_index: 882
+      original_value: 10425.0
+      proposed_value: 1042.5
+      status: corrected_after_explicit_approval
+    - row_index: 974
+      original_value: 12898.0
+      proposed_value: 1289.8
+      status: corrected_after_explicit_approval
+    - row_index: 978
+      original_value: 14043.0
+      proposed_value: 1404.3
+      status: corrected_after_explicit_approval
+  stuck_sensor:
+    detected: true
+    column: biometric_failures
+    action: Preserved without automatic correction. Review sensor reliability before
+      using this feature.
+    findings:
+    - column: biometric_failures
+      group: Block East
+      stuck_value: 49.0
+      first_date: '2026-02-26'
+      last_date: '2026-03-14'
+      duration_days: 16
+      row_count: 18
+      action: Preserved; flagged for investigation
+    - column: biometric_failures
+      group: Block North
+      stuck_value: 49.0
+      first_date: '2026-02-24'
+      last_date: '2026-03-14'
+      duration_days: 18
+      row_count: 56
+      action: Preserved; flagged for investigation
+    - column: biometric_failures
+      group: Block South
+      stuck_value: 49.0
+      first_date: '2026-02-24'
+      last_date: '2026-03-14'
+      duration_days: 18
+      row_count: 36
+      action: Preserved; flagged for investigation
+  sentinel_values:
+    stage1_reported_present: false
+    independent_candidates: []
+    values_replaced: 0
+    action: No automatic sentinel replacement
+  missing_values:
+    missing_values_by_column: {}
+    total_missing_values: 0
+    imputation_performed: false
+    imputation_strategy: Deferred to sklearn preprocessing pipeline to prevent validation
+      leakage.
+  categorical_values:
+    text_columns_checked:
+    - record_id
+    - date
+    - shop_area
+    - block
+    whitespace_corrections: {}
+    spelling_corrections: 0
+  date_features:
+    applied: true
+    original_column: date
+    created_features:
+    - month
+    - day_of_week
+    - day_of_month
+    - day_of_year
+    - is_weekend
+    invalid_dates: 0
+    original_date_missing: 0
+validation:
+  final_shape:
+  - 1000
+  - 15
+  target_column: grain_kg
+  target_missing_values: 0
+  duplicate_rows: 0
+  record_id_excluded_from_model_features: true
+  date_excluded_after_feature_engineering: true
