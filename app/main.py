@@ -1,133 +1,120 @@
+import logging
+import math
 from functools import lru_cache
 from pathlib import Path
-import math
-import mlflow
-import mlflow.sklearn
+
+import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# ---------------------------------------------------------
-# PROJECT CONFIGURATION
-# ---------------------------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
-MLFLOW_DB = ROOT / "mlflow.db"
-
-MODEL_NAME = "grain-yield-regressor-v1"
-MODEL_ALIAS = "champion"
-MODEL_URI = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
-
+logger = logging.getLogger(__name__)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+MODEL_PATH = PROJECT_ROOT / "models" / "model.joblib"
 FEATURE_COLUMNS = [
     "cards_attached",
     "working_hours",
+    "biometric_failures",
     "temp_c",
     "stock_kg_morning",
     "days_to_month_end",
-    "month",
-    "day_of_week",
-    "day_of_month",
-    "day_of_year",
-    "is_weekend",
     "shop_area",
     "block",
 ]
 
-# Use the project's own MLflow database.
-mlflow.set_tracking_uri(f"sqlite:///{MLFLOW_DB.as_posix()}")
+
+class ModelUnavailableError(Exception):
+    """Raised when the configured artifact cannot serve the API contract."""
 
 
-# ---------------------------------------------------------
-# FASTAPI APPLICATION
-# ---------------------------------------------------------
+class PredictionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cards_attached: int = Field(..., ge=100)
+    working_hours: float
+    biometric_failures: int
+    temp_c: float = Field(..., le=80)
+    stock_kg_morning: float
+    days_to_month_end: int
+    shop_area: str
+    block: str
+
+
+class PredictionResponse(BaseModel):
+    prediction: float
+
+
 app = FastAPI(
-    title="Grain Yield Prediction API",
-    description="Predicts grain quantity using the registered champion model.",
+    title="Grain Distribution Prediction API",
+    description="Predicts grain distribution using the trained regression pipeline.",
     version="1.0.0",
 )
 
 
-# ---------------------------------------------------------
-# REQUEST SCHEMA
-# ---------------------------------------------------------
-class PredictionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    cards_attached: float = Field(ge=0)
-    working_hours: float = Field(ge=0)
-    temp_c: float
-    stock_kg_morning: float = Field(ge=0)
-    days_to_month_end: float = Field(ge=0)
-
-    month: int = Field(ge=1, le=12)
-    day_of_week: int = Field(ge=0, le=6)
-    day_of_month: int = Field(ge=1, le=31)
-    day_of_year: int = Field(ge=1, le=366)
-    is_weekend: int = Field(ge=0, le=1)
-
-    shop_area: str = Field(min_length=1)
-    block: str = Field(min_length=1)
-
-
-class PredictionResponse(BaseModel):
-    predicted_grain_kg: float
-    model_name: str
-    model_alias: str
-
-
-# ---------------------------------------------------------
-# LOAD CHAMPION MODEL ON DEMAND
-# ---------------------------------------------------------
 @lru_cache(maxsize=1)
-def load_champion_model():
-    if not MLFLOW_DB.exists():
-        raise FileNotFoundError(
-            f"MLflow database not found: {MLFLOW_DB}"
+def load_model():
+    if not MODEL_PATH.is_file():
+        raise ModelUnavailableError("Model artifact is missing.")
+    if MODEL_PATH.stat().st_size == 0:
+        raise ModelUnavailableError("Model artifact is empty.")
+
+    try:
+        model = joblib.load(MODEL_PATH)
+    except Exception as exc:
+        logger.exception("Could not load the configured model artifact.")
+        raise ModelUnavailableError("Model artifact could not be loaded.") from exc
+
+    if not callable(getattr(model, "predict", None)):
+        raise ModelUnavailableError("Loaded artifact does not provide prediction.")
+
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is None or list(feature_names) != FEATURE_COLUMNS:
+        raise ModelUnavailableError(
+            "Loaded model features do not match the API request schema."
         )
 
-    return mlflow.sklearn.load_model(MODEL_URI)
+    return model
 
 
-# ---------------------------------------------------------
-# HEALTH ENDPOINT
-# ---------------------------------------------------------
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy",
-        "service": "grain-yield-prediction",
-        "model": MODEL_NAME,
-        "alias": MODEL_ALIAS,
-    }
+    try:
+        load_model()
+    except ModelUnavailableError as exc:
+        logger.warning("Health check failed: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction model is unavailable.",
+        ) from exc
+    return {"status": "ok"}
 
 
-# ---------------------------------------------------------
-# PREDICTION ENDPOINT
-# ---------------------------------------------------------
 @app.post("/predict", response_model=PredictionResponse)
 def predict(request: PredictionRequest):
     try:
-        model = load_champion_model()
+        model = load_model()
+    except ModelUnavailableError as exc:
+        logger.warning("Prediction unavailable: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction model is unavailable.",
+        ) from exc
 
-        input_data = pd.DataFrame(
-            [request.model_dump()],
-            columns=FEATURE_COLUMNS,
-        )
-
-        prediction = model.predict(input_data)
-        predicted_value = float(prediction[0])
-
-        if not math.isfinite(predicted_value):
+    input_data = pd.DataFrame(
+        [request.model_dump()],
+        columns=FEATURE_COLUMNS,
+    )
+    try:
+        predictions = model.predict(input_data)
+        prediction_value = float(predictions[0])
+        if not math.isfinite(prediction_value):
             raise ValueError("Model returned a non-finite prediction.")
-
-        return PredictionResponse(
-            predicted_grain_kg=predicted_value,
-            model_name=MODEL_NAME,
-            model_alias=MODEL_ALIAS,
-        )
-
     except Exception as exc:
+        logger.exception("Model inference failed.")
         raise HTTPException(
             status_code=500,
-            detail=f"Prediction failed: {str(exc)}",
+            detail="Model inference failed.",
         ) from exc
+
+    return PredictionResponse(prediction=prediction_value)
