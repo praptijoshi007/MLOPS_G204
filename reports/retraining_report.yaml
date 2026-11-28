@@ -1,0 +1,25 @@
+later_rows: 300
+retraining_rows_from_later_70_percent: 210
+testing_rows_from_later_30_percent: 90
+combined_training_rows: 1210
+block_mae:
+  Block South:
+    records: 94
+    mae: 230.55191483269164
+  Block North:
+    records: 159
+    mae: 105.96275128368264
+  Block East:
+    records: 47
+    mae: 99.61927131469228
+worst_served_block: Block South
+v1_mae_on_same_final_30_percent: 137.79626883657494
+v2_mae_on_same_final_30_percent: 116.59958316161354
+v2_improvement_percent: 15.38262672416803
+promotion_threshold_percent: 5.0
+v2_promoted: true
+selected_champion: v2
+champion_model_version: '2'
+holdout_prediction_rows: 250
+data_sha256_original_train_csv: bf2813f11247b700a610eee581550e102b663b3dce8140e703f5deaef1f04a07
+v2_mlflow_run_id: 0b2d391a882842a4850121440a35dec2

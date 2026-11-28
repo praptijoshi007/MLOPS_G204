@@ -1,4 +1,4 @@
-from pathlib import Path
+'''from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -96,6 +96,82 @@ def run_psi(reference_path=TRAIN_PATH, current_path=LATER_PATH):
     )
     print("PSI:", results_df.iloc[0]["psi"])
     return results_df
+
+
+if __name__ == "__main__":
+    run_psi()
+'''
+
+from pathlib import Path
+import numpy as np
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[2]
+TRAIN_PATH = ROOT / "data" / "processed" / "train_clean.csv"
+LATER_PATH = ROOT / "data" / "raw" / "later.csv"
+REPORT_PATH = ROOT / "reports" / "psi_results.csv"
+
+PSI_COLUMNS = [
+    "cards_attached",
+    "working_hours",
+    "biometric_failures",
+    "temp_c",
+    "stock_kg_morning",
+    "days_to_month_end",
+]
+BIN_COUNT = 10
+EPSILON = 1e-6
+
+
+def calculate_psi(reference, current, bins=BIN_COUNT):
+    reference = np.asarray(reference, dtype=float)
+    current = np.asarray(current, dtype=float)
+    reference = reference[np.isfinite(reference)]
+    current = current[np.isfinite(current)]
+    if len(reference) == 0 or len(current) == 0:
+        raise ValueError("PSI cannot be calculated from an empty numeric column.")
+
+    low, high = float(reference.min()), float(reference.max())
+    if low == high:
+        low, high = low - 0.5, high + 0.5
+
+    # Ten equal-width bins defined using the reference/training distribution.
+    edges = np.linspace(low, high, bins + 1)
+    edges[0], edges[-1] = -np.inf, np.inf
+
+    ref_pct = np.histogram(reference, bins=edges)[0].astype(float)
+    cur_pct = np.histogram(current, bins=edges)[0].astype(float)
+    ref_pct /= ref_pct.sum()
+    cur_pct /= cur_pct.sum()
+    ref_pct = np.clip(ref_pct, EPSILON, None)
+    cur_pct = np.clip(cur_pct, EPSILON, None)
+
+    return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
+
+
+def run_psi():
+    train = pd.read_csv(TRAIN_PATH)
+    later = pd.read_csv(LATER_PATH)
+
+    missing = [c for c in PSI_COLUMNS if c not in train or c not in later]
+    if missing:
+        raise ValueError(f"Required PSI columns missing from one or both datasets: {missing}")
+
+    rows = []
+    for col in PSI_COLUMNS:
+        value = calculate_psi(train[col], later[col], bins=10)
+        rows.append({"column": col, "psi": value})
+
+    result = pd.DataFrame(rows).sort_values("psi", ascending=False).reset_index(drop=True)
+    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(REPORT_PATH, index=False)
+
+    print("\n========== PSI RESULTS (10 BINS) ==========")
+    print(result.to_string(index=False))
+    print(f"\nMost drifted feature: {result.iloc[0]['column']}")
+    print(f"Highest PSI: {result.iloc[0]['psi']:.6f}")
+    print(f"Saved: {REPORT_PATH}")
+    return result
 
 
 if __name__ == "__main__":

@@ -1,0 +1,3 @@
+model,mae,test_rows,improvement_percent_vs_v1
+v1_champion,137.79626883657494,90,0.0
+v2_retrained,116.59958316161354,90,15.38262672416803

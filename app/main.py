@@ -46,7 +46,21 @@ FEATURE_COLUMNS = [
     "shop_area",
     "block",
 ]
+class APIModelAdapter:
+    """Adapts the eight-field API request to the model's 12 engineered features."""
 
+    def __init__(self, model, date_defaults, raw_feature_columns, model_feature_columns):
+        self.model = model
+        self.date_defaults = dict(date_defaults)
+        self.raw_feature_columns = list(raw_feature_columns)
+        self.model_feature_columns = list(model_feature_columns)
+        self.feature_names_in_ = self.raw_feature_columns
+
+    def predict(self, X):
+        frame = pd.DataFrame(X).copy()
+        for column, value in self.date_defaults.items():
+            frame[column] = value
+        return self.model.predict(frame[self.model_feature_columns])
 
 class ModelUnavailableError(Exception):
     """Raised when the configured artifact cannot serve the API contract."""
