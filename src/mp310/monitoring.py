@@ -61,7 +61,7 @@ def add_date_features(data):
         data["day_of_year"] = dates.dt.day_of_year
 
     if "is_weekend" not in data.columns:
-        data["is_weekend"] = (dates.dt.dayofweek >= 5).astype(int)
+        data["is_weekend"] = (dates.dt.day_of_week >= 5).astype(int)
 
     return data
 
@@ -120,10 +120,24 @@ def run_psi(reference_path=TRAIN_PATH, current_path=LATER_PATH):
     later = add_date_features(later)
 
     # Compare every numeric column available in both datasets.
-    numeric_columns = sorted(
-        set(train.select_dtypes(include="number").columns)
-        & set(later.select_dtypes(include="number").columns)
-    )
+
+    numeric_columns = [
+    "cards_attached",
+    "working_hours",
+    "biometric_failures",
+    "temp_c",
+    "stock_kg_morning",
+    "days_to_month_end",
+    ]
+
+    missing_train = set(numeric_columns) - set(train.columns)
+    missing_later = set(numeric_columns) - set(later.columns)
+
+    if missing_train or missing_later:
+        raise ValueError(
+            f"Missing PSI features. Train: {missing_train}, "
+            f"Later: {missing_later}"
+        )
 
     if not numeric_columns:
         raise ValueError("No common numeric columns were found.")

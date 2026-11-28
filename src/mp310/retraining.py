@@ -15,6 +15,10 @@ from sklearn.metrics import mean_absolute_error
 from app.main import APIModelAdapter, FEATURE_COLUMNS as API_FEATURE_COLUMNS
 
 ROOT = Path(__file__).resolve().parents[2]
+PARAMS_PATH = ROOT / "params.yaml"
+
+with open(PARAMS_PATH, "r", encoding="utf-8") as file:
+    PARAMS = yaml.safe_load(file)
 TRAIN_PATH = ROOT / "data" / "processed" / "train_clean.csv"
 RAW_TRAIN_PATH = ROOT / "data" / "raw" / "train.csv"
 LATER_PATH = ROOT / "data" / "raw" / "later.csv"
@@ -26,8 +30,8 @@ COMPARISON_PATH = ROOT / "reports" / "retraining_comparison.csv"
 REPORT_PATH = ROOT / "reports" / "retraining_report.yaml"
 MLFLOW_DB = ROOT / "mlflow.db"
 
-TARGET = "grain_kg"
-MODEL_NAME = "grain-yield-regressor-v1"
+TARGET = PARAMS["project"]["target"]
+MODEL_NAME = PARAMS["mlflow"]["model_name"]
 EXPERIMENT_NAME = "grain-yield-v2-retraining"
 MODEL_FEATURES = [
     "cards_attached", "working_hours", "temp_c", "stock_kg_morning",
@@ -35,7 +39,7 @@ MODEL_FEATURES = [
     "day_of_month", "day_of_year", "is_weekend",
 ]
 DATE_FEATURES = ["month", "day_of_week", "day_of_month", "day_of_year", "is_weekend"]
-RANDOM_STATE = 42
+RANDOM_STATE = PARAMS["project"]["random_state"]
 
 
 def sha256(path):
@@ -53,10 +57,10 @@ def engineer_date_features(df, require_target=False):
         if dates.isna().any():
             raise ValueError("Invalid or missing date values found in dataset.")
         data["month"] = dates.dt.month
-        data["day_of_week"] = dates.dt.dayofweek
+        data["day_of_week"] = dates.dt.day_of_week
         data["day_of_month"] = dates.dt.day
         data["day_of_year"] = dates.dt.dayofyear
-        data["is_weekend"] = (dates.dt.dayofweek >= 5).astype(int)
+        data["is_weekend"] = (dates.dt.day_of_week >= 5).astype(int)
 
     missing = [c for c in MODEL_FEATURES if c not in data.columns]
     if missing:

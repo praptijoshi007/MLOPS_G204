@@ -1,0 +1,11 @@
+
+project:
+  target: grain_kg
+  random_state: 42
+
+training:
+  train_fraction: 0.80
+
+mlflow:
+  model_name: grain-yield-regressor-v1
+  experiment_name: grain-yield-v1-regression

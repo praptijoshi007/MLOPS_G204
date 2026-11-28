@@ -23,3 +23,4 @@ champion_model_version: '2'
 holdout_prediction_rows: 250
 data_sha256_original_train_csv: bf2813f11247b700a610eee581550e102b663b3dce8140e703f5deaef1f04a07
 v2_mlflow_run_id: 0b2d391a882842a4850121440a35dec2
+v1_best_model_run_id: 82a62366644d4774b49c4cbd2ab7b30b

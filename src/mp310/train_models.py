@@ -44,6 +44,17 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+PARAMS_PATH = PROJECT_ROOT / "params.yaml"
+
+with open(PARAMS_PATH, "r", encoding="utf-8") as file:
+    PARAMS = yaml.safe_load(file)
+
+TARGET = PARAMS["project"]["target"]
+RANDOM_STATE = PARAMS["project"]["random_state"]
+TRAIN_FRACTION = PARAMS["training"]["train_fraction"]
+MODEL_NAME = PARAMS["mlflow"]["model_name"]
+EXPERIMENT_NAME = PARAMS["mlflow"]["experiment_name"]
+
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "train_clean.csv"
 RAW_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "train.csv"
 
@@ -51,14 +62,6 @@ REPORT_DIR = PROJECT_ROOT / "reports"
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 COMPARISON_PATH = REPORT_DIR / "v1_model_comparison.csv"
-
-TARGET = "grain_kg"
-
-MODEL_NAME = "grain-yield-regressor-v1"
-EXPERIMENT_NAME = "grain-yield-v1-regression"
-
-RANDOM_STATE = 42
-TRAIN_FRACTION = 0.80
 
 # Exclude identifiers and unreliable measurements.
 EXCLUDED_FEATURES = {
