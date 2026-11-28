@@ -1,5 +1,6 @@
-import logging
+
 import json
+import logging
 import math
 from functools import lru_cache
 from pathlib import Path
@@ -31,12 +32,15 @@ if not logger.handlers:
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(JsonLogFormatter())
     logger.addHandler(log_handler)
+
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "models" / "model.joblib"
-FEATURE_COLUMNS = [
+
+# Exact eight-field API request schema.
+RAW_FEATURE_COLUMNS = [
     "cards_attached",
     "working_hours",
     "biometric_failures",
@@ -46,10 +50,34 @@ FEATURE_COLUMNS = [
     "shop_area",
     "block",
 ]
-class APIModelAdapter:
-    """Adapts the eight-field API request to the model's 12 engineered features."""
 
-    def __init__(self, model, date_defaults, raw_feature_columns, model_feature_columns):
+# Twelve features expected by the trained model.
+FEATURE_COLUMNS = [
+    "cards_attached",
+    "working_hours",
+    "temp_c",
+    "stock_kg_morning",
+    "days_to_month_end",
+    "shop_area",
+    "block",
+    "month",
+    "day_of_week",
+    "day_of_month",
+    "day_of_year",
+    "is_weekend",
+]
+
+
+class APIModelAdapter:
+    """Adapts eight API fields to the model's twelve engineered features."""
+
+    def __init__(
+        self,
+        model,
+        date_defaults,
+        raw_feature_columns,
+        model_feature_columns,
+    ):
         self.model = model
         self.date_defaults = dict(date_defaults)
         self.raw_feature_columns = list(raw_feature_columns)
@@ -58,12 +86,16 @@ class APIModelAdapter:
 
     def predict(self, X):
         frame = pd.DataFrame(X).copy()
+
         for column, value in self.date_defaults.items():
-            frame[column] = value
+            if column not in frame.columns:
+                frame[column] = value
+
         return self.model.predict(frame[self.model_feature_columns])
 
+
 class ModelUnavailableError(Exception):
-    """Raised when the configured artifact cannot serve the API contract."""
+    """Raised when the configured model cannot serve the API contract."""
 
 
 class PredictionRequest(BaseModel):
@@ -79,44 +111,11 @@ class PredictionRequest(BaseModel):
     block: str
 
 
-LEGACY_FEATURE_COLUMNS = [
-    "cards_attached",
-    "working_hours",
-    "temp_c",
-    "stock_kg_morning",
-    "days_to_month_end",
-    "month",
-    "day_of_week",
-    "day_of_month",
-    "day_of_year",
-    "is_weekend",
-    "shop_area",
-    "block",
-]
-
-
-class LegacyPredictionRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    cards_attached: int = Field(..., ge=100)
-    working_hours: float
-    temp_c: float = Field(..., le=80)
-    stock_kg_morning: float
-    days_to_month_end: int
-    month: int = Field(..., ge=1, le=12)
-    day_of_week: int = Field(..., ge=0, le=6)
-    day_of_month: int = Field(..., ge=1, le=31)
-    day_of_year: int = Field(..., ge=1, le=366)
-    is_weekend: int = Field(..., ge=0, le=1)
-    shop_area: str
-    block: str
-
-
 class PredictionResponse(BaseModel):
     predicted_grain_kg: float
+    prediction: float
     model_name: str
     model_alias: str
-    prediction: float
 
 
 app = FastAPI(
@@ -130,6 +129,7 @@ app = FastAPI(
 def load_model():
     if not MODEL_PATH.is_file():
         raise ModelUnavailableError("Model artifact is missing.")
+
     if MODEL_PATH.stat().st_size == 0:
         raise ModelUnavailableError("Model artifact is empty.")
 
@@ -137,13 +137,24 @@ def load_model():
         model = joblib.load(MODEL_PATH)
     except Exception as exc:
         logger.exception("Could not load the configured model artifact.")
-        raise ModelUnavailableError("Model artifact could not be loaded.") from exc
+        raise ModelUnavailableError(
+            "Model artifact could not be loaded."
+        ) from exc
 
     if not callable(getattr(model, "predict", None)):
-        raise ModelUnavailableError("Loaded artifact does not provide prediction.")
+        raise ModelUnavailableError(
+            "Loaded artifact does not provide prediction."
+        )
 
-    feature_names = getattr(model, "feature_names_in_", None)
-    if feature_names is None or list(feature_names) != FEATURE_COLUMNS:
+    raw_features = getattr(model, "raw_feature_columns", None)
+    model_features = getattr(model, "model_feature_columns", None)
+
+    if (
+        raw_features is None
+        or list(raw_features) != RAW_FEATURE_COLUMNS
+        or model_features is None
+        or list(model_features) != FEATURE_COLUMNS
+    ):
         raise ModelUnavailableError(
             "Loaded model features do not match the API request schema."
         )
@@ -161,15 +172,16 @@ def health():
             status_code=503,
             detail="Prediction model is unavailable.",
         ) from exc
+
     return {
-        "status": "healthy",
+        "status": "ok",
         "model": "grain-yield-regressor-v1",
         "alias": "champion",
     }
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(request: PredictionRequest | LegacyPredictionRequest):
+def predict(request: PredictionRequest):
     try:
         model = load_model()
     except ModelUnavailableError as exc:
@@ -179,24 +191,18 @@ def predict(request: PredictionRequest | LegacyPredictionRequest):
             detail="Prediction model is unavailable.",
         ) from exc
 
-    if isinstance(request, LegacyPredictionRequest):
-        input_data = pd.DataFrame(
-            [request.model_dump()],
-            columns=LEGACY_FEATURE_COLUMNS,
-        )
-    else:
-        input_data = pd.DataFrame(
-            [request.model_dump()],
-            columns=FEATURE_COLUMNS,
-        )
+    input_data = pd.DataFrame(
+        [request.model_dump()],
+        columns=RAW_FEATURE_COLUMNS,
+    )
+
     try:
-        if isinstance(request, LegacyPredictionRequest) and hasattr(model, "model"):
-            predictions = model.model.predict(input_data)
-        else:
-            predictions = model.predict(input_data)
+        predictions = model.predict(input_data)
         prediction_value = float(predictions[0])
+
         if not math.isfinite(prediction_value):
             raise ValueError("Model returned a non-finite prediction.")
+
     except Exception as exc:
         logger.exception("Model inference failed.")
         raise HTTPException(
@@ -212,9 +218,10 @@ def predict(request: PredictionRequest | LegacyPredictionRequest):
             "status_code": 200,
         },
     )
+
     return PredictionResponse(
-        prediction=prediction_value,
         predicted_grain_kg=prediction_value,
+        prediction=prediction_value,
         model_name="grain-yield-regressor-v1",
         model_alias="champion",
     )

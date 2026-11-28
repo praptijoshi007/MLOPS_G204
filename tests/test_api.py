@@ -1,29 +1,19 @@
-
 import math
-
 from fastapi.testclient import TestClient
-
 from app.main import app
 
-
 client = TestClient(app)
-
 
 VALID_PAYLOAD = {
     "cards_attached": 120,
     "working_hours": 8,
+    "biometric_failures": 2,
     "temp_c": 28.5,
     "stock_kg_morning": 1700.0,
     "days_to_month_end": 10,
-    "month": 5,
-    "day_of_week": 1,
-    "day_of_month": 20,
-    "day_of_year": 140,
-    "is_weekend": 0,
     "shop_area": "urban",
     "block": "Block North",
 }
-
 
 def test_health_endpoint():
     response = client.get("/health")
@@ -31,7 +21,7 @@ def test_health_endpoint():
     assert response.status_code == 200
 
     body = response.json()
-    assert body["status"] == "healthy"
+    assert body["status"] == "ok"
     assert body["model"] == "grain-yield-regressor-v1"
     assert body["alias"] == "champion"
 
@@ -58,9 +48,18 @@ def test_predict_endpoint_rejects_missing_features():
     assert response.status_code == 422
 
 
-def test_predict_endpoint_rejects_invalid_month():
+def test_predict_endpoint_rejects_temperature_above_80():
     invalid_payload = VALID_PAYLOAD.copy()
-    invalid_payload["month"] = 13
+    invalid_payload["temp_c"] = 81
+
+    response = client.post("/predict", json=invalid_payload)
+
+    assert response.status_code == 422
+
+
+def test_predict_endpoint_rejects_cards_below_100():
+    invalid_payload = VALID_PAYLOAD.copy()
+    invalid_payload["cards_attached"] = 99
 
     response = client.post("/predict", json=invalid_payload)
 
