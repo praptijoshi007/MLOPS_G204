@@ -1,0 +1,15 @@
+run fast api-
+python -m uvicorn app.main:app --reload --port 8000
+swagger ui-
+http://127.0.0.1:8000/docs
+health-
+http://127.0.0.1:8000/health
+api root-
+http://127.0.0.1:8000/
+mlflow dashboard (in another terminal)-
+cd "C:\Users\prapt\python projs\MLOPS_G204"
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+saved model checkpoint-
+python -c "import joblib; m=joblib.load('models/model.joblib'); print('Adapter:',type(m).__name__); print('Inner model:',type(m.model).__name__); print('Date defaults:',m.date_defaults)"
+champion checkpoint-
+python -c "from mlflow import MlflowClient; c=MlflowClient(); v=c.get_model_version_by_alias('grain-yield-regressor-v1','champion'); print('Registered model:',v.name); print('Champion version:',v.version); print('Run ID:',v.run_id); print('Artifact source:',v.source)"
