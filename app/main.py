@@ -1,4 +1,5 @@
 import logging
+import json
 import math
 from functools import lru_cache
 from pathlib import Path
@@ -10,6 +11,29 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 logger = logging.getLogger(__name__)
+
+
+class JsonLogFormatter(logging.Formatter):
+    def format(self, record):
+        payload = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%SZ"),
+            "level": record.levelname,
+            "event": getattr(record, "event", "api"),
+            "message": record.getMessage(),
+        }
+        for key in ("prediction", "status_code"):
+            if hasattr(record, key):
+                payload[key] = getattr(record, key)
+        return json.dumps(payload)
+
+
+if not logger.handlers:
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(JsonLogFormatter())
+    logger.addHandler(log_handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "models" / "model.joblib"
 FEATURE_COLUMNS = [
@@ -117,4 +141,12 @@ def predict(request: PredictionRequest):
             detail="Model inference failed.",
         ) from exc
 
+    logger.info(
+        "Prediction completed",
+        extra={
+            "event": "prediction",
+            "prediction": prediction_value,
+            "status_code": 200,
+        },
+    )
     return PredictionResponse(prediction=prediction_value)
