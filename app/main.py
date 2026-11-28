@@ -79,7 +79,43 @@ class PredictionRequest(BaseModel):
     block: str
 
 
+LEGACY_FEATURE_COLUMNS = [
+    "cards_attached",
+    "working_hours",
+    "temp_c",
+    "stock_kg_morning",
+    "days_to_month_end",
+    "month",
+    "day_of_week",
+    "day_of_month",
+    "day_of_year",
+    "is_weekend",
+    "shop_area",
+    "block",
+]
+
+
+class LegacyPredictionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cards_attached: int = Field(..., ge=100)
+    working_hours: float
+    temp_c: float = Field(..., le=80)
+    stock_kg_morning: float
+    days_to_month_end: int
+    month: int = Field(..., ge=1, le=12)
+    day_of_week: int = Field(..., ge=0, le=6)
+    day_of_month: int = Field(..., ge=1, le=31)
+    day_of_year: int = Field(..., ge=1, le=366)
+    is_weekend: int = Field(..., ge=0, le=1)
+    shop_area: str
+    block: str
+
+
 class PredictionResponse(BaseModel):
+    predicted_grain_kg: float
+    model_name: str
+    model_alias: str
     prediction: float
 
 
@@ -125,11 +161,15 @@ def health():
             status_code=503,
             detail="Prediction model is unavailable.",
         ) from exc
-    return {"status": "ok"}
+    return {
+        "status": "healthy",
+        "model": "grain-yield-regressor-v1",
+        "alias": "champion",
+    }
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(request: PredictionRequest):
+def predict(request: PredictionRequest | LegacyPredictionRequest):
     try:
         model = load_model()
     except ModelUnavailableError as exc:
@@ -139,12 +179,21 @@ def predict(request: PredictionRequest):
             detail="Prediction model is unavailable.",
         ) from exc
 
-    input_data = pd.DataFrame(
-        [request.model_dump()],
-        columns=FEATURE_COLUMNS,
-    )
+    if isinstance(request, LegacyPredictionRequest):
+        input_data = pd.DataFrame(
+            [request.model_dump()],
+            columns=LEGACY_FEATURE_COLUMNS,
+        )
+    else:
+        input_data = pd.DataFrame(
+            [request.model_dump()],
+            columns=FEATURE_COLUMNS,
+        )
     try:
-        predictions = model.predict(input_data)
+        if isinstance(request, LegacyPredictionRequest) and hasattr(model, "model"):
+            predictions = model.model.predict(input_data)
+        else:
+            predictions = model.predict(input_data)
         prediction_value = float(predictions[0])
         if not math.isfinite(prediction_value):
             raise ValueError("Model returned a non-finite prediction.")
@@ -163,4 +212,9 @@ def predict(request: PredictionRequest):
             "status_code": 200,
         },
     )
-    return PredictionResponse(prediction=prediction_value)
+    return PredictionResponse(
+        prediction=prediction_value,
+        predicted_grain_kg=prediction_value,
+        model_name="grain-yield-regressor-v1",
+        model_alias="champion",
+    )
